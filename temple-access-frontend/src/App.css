@@ -1,0 +1,184 @@
+/* ============================= */
+/* Global container & typography */
+/* ============================= */
+body {
+  margin: 0;
+  padding: 0;
+  background: #f9fafc;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
+}
+
+.container {
+  max-width: 1100px;
+  margin: auto;
+  padding: 20px;
+}
+
+/* ============================= */
+/* Header                        */
+/* ============================= */
+header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+header h1 {
+  font-size: 32px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.status {
+  margin-top: 10px;
+  font-weight: bold;
+  color: #27ae60;
+  font-size: 16px;
+}
+
+/* ============================= */
+/* Dashboard (Table styling)     */
+/* ============================= */
+.table-section {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  margin-top: 25px;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.table-section h2 {
+  margin-bottom: 15px;
+  color: #34495e;
+}
+
+.scan-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.scan-table th,
+.scan-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #ddd;
+  text-align: center;
+  font-size: 14px;
+}
+
+.scan-table th {
+  background: #4cafef;
+  color: white;
+  text-transform: uppercase;
+}
+
+.scan-table tr:nth-child(even) {
+  background: #f8f9fa;
+}
+
+.scan-table tr.registered {
+  background: #e8f9f0;
+  color: #2c7a4c;
+}
+
+.scan-table tr.not-registered {
+  background: #fdecea;
+  color: #c0392b;
+}
+
+.scan-table tr:hover {
+  background: #f1f1f1;
+}
+
+/* ============================= */
+/* Register Page Styling         */
+/* ============================= */
+.register-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #4cafef, #27ae60);
+}
+
+.register-card {
+  background: #fff;
+  padding: 2rem 3rem;
+  border-radius: 15px;
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  width: 400px;
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+.register-card h2 {
+  margin-bottom: 1rem;
+  color: #2c3e50;
+}
+
+.uid-display {
+  margin-bottom: 1.5rem;
+  font-size: 14px;
+  color: #555;
+}
+
+.uid-display span {
+  font-weight: bold;
+  color: #27ae60;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px;
+  margin: 0.5rem 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  transition: border 0.3s;
+}
+
+.form-input:focus {
+  border: 1px solid #27ae60;
+}
+
+.form-buttons {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.3s;
+  font-weight: bold;
+}
+
+.btn.primary {
+  background: #27ae60;
+  color: white;
+}
+
+.btn.primary:hover {
+  background: #219150;
+}
+
+.btn.secondary {
+  background: #e74c3c;
+  color: white;
+}
+
+.btn.secondary:hover {
+  background: #c0392b;
+}
+
+/* ============================= */
+/* Animations                    */
+/* ============================= */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
