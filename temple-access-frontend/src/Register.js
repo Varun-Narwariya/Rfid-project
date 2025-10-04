@@ -1,88 +1,46 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./App.css";
 
 const API_URL = "http://localhost:8080";
 
-function Register() {
-  const location = useLocation();
+export default function Register() {
   const navigate = useNavigate();
-  const queryParams = new URLSearchParams(location.search);
-
-  const uid = queryParams.get("uid");
-  const checkpoint = queryParams.get("checkpoint");
-
+  const [uid, setUid] = useState("");
   const [name, setName] = useState("");
   const [aadhar, setAadhar] = useState("");
+  const [journeyTime, setJourneyTime] = useState("");
 
   const handleRegister = async () => {
-    if (!name) {
-      alert("⚠️ Please enter a name");
-      return;
+    if (!name || !/^\d{12}$/.test(aadhar) || !journeyTime) {
+      return alert("Enter valid name, Aadhaar (12 digits) and journey time (hours).");
     }
-    if (!/^\d{12}$/.test(aadhar)) {
-      alert("⚠️ Aadhaar number must be exactly 12 digits");
-      return;
-    }
-
     try {
       await axios.post(`${API_URL}/registerUser`, {
-        uid,
-        name,
-        aadhar,
-        checkpoint,
+        uid, name, aadhar, journeyTime: parseInt(journeyTime) * 3600, // send seconds
       });
-      alert(`✅ User ${name} registered successfully!`);
+      alert("User registered");
       navigate("/");
     } catch (err) {
       console.error(err);
-      alert("❌ Error registering user");
+      alert("Registration failed");
     }
   };
 
   return (
-    <div className="register-container">
+    <div className="register-full">
       <div className="register-card">
-        <h2>Register New User</h2>
-
-        <div className="uid-display">
-          <p>
-            UID: <span>{uid}</span>
-          </p>
-          <p>
-            Checkpoint: <span>{checkpoint}</span>
-          </p>
-        </div>
-
-        <input
-          type="text"
-          className="form-input"
-          placeholder="Enter Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-
-        <input
-          type="text"
-          className="form-input"
-          placeholder="Enter Aadhaar Number (12 digits)"
-          value={aadhar}
-          onChange={(e) => setAadhar(e.target.value)}
-          maxLength="12"
-        />
-
-        <div className="form-buttons">
-          <button className="btn primary" onClick={handleRegister}>
-            Register
-          </button>
-          <button className="btn secondary" onClick={() => navigate("/")}>
-            Cancel
-          </button>
+        <h2>Register Devotee</h2>
+        <input className="form-input" placeholder="UID (auto from scan)" value={uid} onChange={e=>setUid(e.target.value)} />
+        <input className="form-input" placeholder="Full name" value={name} onChange={e=>setName(e.target.value)} />
+        <input className="form-input" placeholder="Aadhaar (12 digits)" value={aadhar} maxLength={12} onChange={e=>setAadhar(e.target.value)} />
+        <input className="form-input" placeholder="Journey time (hours)" type="number" value={journeyTime} onChange={e=>setJourneyTime(e.target.value)} />
+        <div style={{display:"flex",gap:10}}>
+          <button className="btn primary" onClick={handleRegister}>Register</button>
+          <button className="btn secondary" onClick={()=>navigate("/")}>Cancel</button>
         </div>
       </div>
     </div>
   );
 }
-
-export default Register;

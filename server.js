@@ -1,306 +1,30 @@
-
-// // // Simple Node.js server for RFID prototype
-// // const express = require('express');
-// // const cors = require('cors');
-// // const crypto = require('crypto');
-// // const path = require('path');
-
-// // const app = express();
-// // app.use(cors());
-// // app.use(express.json());
-// // app.use(express.static(path.join(__dirname, 'public')));
-
-// // let scans = [];
-
-// // // Live events for dashboard
-// // app.get('/events', (req, res) => {
-// //     res.setHeader('Content-Type', 'text/event-stream');
-// //     res.setHeader('Cache-Control', 'no-cache');
-// //     res.setHeader('Connection', 'keep-alive');
-// //     res.flushHeaders();
-
-// //     const sendUpdate = () => {
-// //         res.write(`data: ${JSON.stringify(scans.slice(-20))}\n\n`);
-// //     };
-// //     const interval = setInterval(sendUpdate, 2000);
-// //     req.on('close', () => clearInterval(interval));
-// // });
-
-// // // API to add scans
-// // app.post('/scan', (req, res) => {
-// //     const { uid, checkpoint } = req.body;
-// //     if (!uid || !checkpoint) {
-// //         return res.status(400).json({ error: 'Missing uid or checkpoint' });
-// //     }
-// //     const hash = crypto.createHash('sha256').update(uid + checkpoint + Date.now()).digest('hex');
-// //     const entry = { uid, checkpoint, time: new Date().toISOString(), hash };
-// //     scans.push(entry);
-// //     console.log("New scan:", entry);
-// //     res.json({ status: 'ok', entry });
-// // });
-
-// // // API to fetch recent scans
-// // app.get('/scans', (req, res) => {
-// //     res.json(scans.slice(-20));
-// // });
-
-// // // Stats
-// // app.get('/stats', (req, res) => {
-// //     const stats = {};
-// //     scans.slice(-100).forEach(s => {
-// //         stats[s.checkpoint] = (stats[s.checkpoint] || 0) + 1;
-// //     });
-// //     res.json(stats);
-// // });
-
-// // const PORT = process.env.PORT || 8080;
-// // app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
-// const express = require('express');
-// const cors = require('cors');
-// const crypto = require('crypto');
-// const path = require('path');
-// const { getUser, registerUser } = require('./TempleAccess.js');
-
-// const app = express();
-// app.use(cors());
-// app.use(express.json());
-// app.use(express.static(path.join(__dirname, 'public')));
-
-// let scans = [];
-
-// // SSE: live events
-// app.get('/events', (req, res) => {
-//     res.setHeader('Content-Type', 'text/event-stream');
-//     res.setHeader('Cache-Control', 'no-cache');
-//     res.setHeader('Connection', 'keep-alive');
-//     res.flushHeaders();
-
-//     const sendUpdate = () => {
-//         res.write(`data: ${JSON.stringify(scans.slice(-20))}\n\n`);
-//     };
-//     const interval = setInterval(sendUpdate, 2000);
-//     req.on('close', () => clearInterval(interval));
-// });
-
-// // Add scan
-// app.post('/scan', async (req, res) => {
-//     const { uid, checkpoint } = req.body;
-//     if (!uid || !checkpoint) return res.status(400).json({ error: 'Missing uid or checkpoint' });
-
-//     const user = await getUser(uid);
-//     if (!user) return res.status(404).json({ error: 'UID not registered' });
-
-//     const hash = crypto.createHash('sha256').update(uid + checkpoint + Date.now()).digest('hex');
-//     const entry = { uid, checkpoint, time: new Date().toISOString(), hash, name: user.name };
-//     scans.push(entry);
-
-//     console.log("New scan:", entry);
-//     res.json({ status: 'ok', entry });
-// });
-
-// // Fetch recent scans
-// app.get('/scans', (req, res) => {
-//     res.json(scans.slice(-20));
-// });
-
-// // Stats per checkpoint
-// app.get('/stats', (req, res) => {
-//     const stats = {};
-//     scans.slice(-100).forEach(s => {
-//         stats[s.checkpoint] = (stats[s.checkpoint] || 0) + 1;
-//     });
-//     res.json(stats);
-// });
-
-// app.post("/registerUser", async (req, res) => {
-//   const { uid, name } = req.body;
-//   if (!uid || !name) return res.status(400).json({ error: "Missing uid or name" });
-
-//   try {
-//     const receipt = await registerUser(uid, "dummyAadhaarHash", name);
-//     res.json({ status: "ok", receipt });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: "Registration failed" });
-//   }
-// });
-
-
-// const PORT = process.env.PORT || 8080;
-// app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
-// server.js
-// require('dotenv').config();
-// const express = require('express');
-// const cors = require('cors');
-// const crypto = require('crypto');
-// const path = require('path');
-
-// const { getUser, registerUser } = require('./TempleAccess'); // our smart contract helper
-
-// const app = express();
-// app.use(cors());
-// app.use(express.json());
-// app.use(express.static(path.join(__dirname, 'public')));
-
-// // ======================
-// // In-memory scan storage
-// // ======================
-
-
-// // ======================
-// // SSE for live updates
-// // ======================
-// let clients = [];
-// app.get("/events", (req, res) => {
-//   res.setHeader("Content-Type", "text/event-stream");
-//   res.setHeader("Cache-Control", "no-cache");
-//   res.setHeader("Connection", "keep-alive");
-//   res.flushHeaders();
-
-//   clients.push(res);
-//   req.on("close", () => {
-//     clients = clients.filter(c => c !== res);
-//   });
-// });
-
-// function broadcast(data) {
-//   clients.forEach(res => res.write(`data: ${JSON.stringify(data)}\n\n`));
-// }
-
-// // ======================
-// // Fetch recent scans
-// // ======================
-// app.get('/scans', (req, res) => {
-//   res.json(scans.slice(-20));
-// });
-
-// // ======================
-// // Submit new scan
-// // ======================
-// app.post('/scan', async (req, res) => {
-//   const { uid, checkpoint } = req.body;
-//   if (!uid || !checkpoint) {
-//     return res.status(400).json({ error: 'Missing uid or checkpoint' });
-//   }
-
-//   try {
-//     const user = await getUser(uid);
-
-//     if (!user) {
-//       const payload = {
-//         status: "not_registered",
-//         uid,
-//         checkpoint,
-//         time: new Date().toISOString()
-//       };
-
-//       scans.push(payload);
-//       console.log("Unregistered UID scanned:", uid);
-
-//       // broadcast to React dashboards
-//       // (SSE clients connected to /events)
-//       broadcast(payload);
-
-//       // respond to ESP32 so it doesn’t hang
-//       return res.json({ error: "UID not registered" });
-//     }
-
-//     // If user is found
-//     const hash = crypto.createHash("sha256")
-//       .update(uid + checkpoint + Date.now())
-//       .digest("hex");
-
-//     const entry = {
-//       status: "registered",
-//       uid,
-//       checkpoint,
-//       time: new Date().toISOString(),
-//       hash,
-//       name: user.name,
-//     };
-
-//     scans.push(entry);
-//     broadcast(entry);
-
-//     res.json({ status: "ok", entry });
-//   } catch (err) {
-//     console.error("Error in /scan:", err);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// });
-
-
-// // ======================
-// // Register new user
-// // ======================
-// app.post('/registerUser', async (req, res) => {
-//   const { uid, name, aadhar } = req.body; // <-- match frontend
-
-//   if (!uid || !name || !aadhar) {
-//     return res.status(400).json({ error: 'Missing uid, name, or aadhar' });
-//   }
-
-//   try {
-//     // Pass aadhar string directly (your templeAccess helper will hash it into bytes32)
-//     const receipt = await registerUser(uid, aadhar, name);
-
-//     // Convert BigInt fields to string for JSON
-//     const serialized = {
-//       transactionHash: receipt.transactionHash,
-//       gasUsed: receipt.gasUsed.toString(),
-//       status: receipt.status,
-//     };
-
-//     console.log(`✅ User registered: ${uid} - ${name} - Aadhar: ${aadhar}`);
-//     res.json({ status: 'ok', receipt: serialized });
-//   } catch (err) {
-//     console.error('Error in /registerUser:', err);
-//     res.status(500).json({ error: 'Registration failed', details: err.message });
-//   }
-// });
-
-
-// // ======================
-// // Get basic stats
-// // ======================
-// app.get('/stats', (req, res) => {
-//   const stats = {};
-//   scans.slice(-100).forEach((s) => {
-//     stats[s.checkpoint] = (stats[s.checkpoint] || 0) + 1;
-//   });
-//   res.json(stats);
-// });
-
-// // ======================
-// // Start server
-// // ======================
-// const PORT = process.env.PORT || 8080;
-// app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const crypto = require('crypto');
-const path = require('path');
-const jwt = require('jsonwebtoken');
-const { getUser, registerUser } = require('./TempleAccess'); // smart contract helper
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const crypto = require("crypto");
+const path = require("path");
+const {
+  getUser,
+  registerUser,
+  revokeUser,
+  logScan,
+} = require("./TempleAccess"); // blockchain helpers
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+app.use(express.static(path.join(__dirname, "public")));
 
 // ======================
-// In-memory scan + tokens
+// In-memory state
 // ======================
-let scans = [];
-let activeTokens = {}; // { uid: token }
+let scans = [];       // All scan history (for stats)
+let pending = [];     // Unregistered UIDs waiting for admin
+let clients = [];     // SSE clients
 
 // ======================
-// SSE for live updates
+// SSE live updates
 // ======================
-let clients = [];
 app.get("/events", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -309,186 +33,235 @@ app.get("/events", (req, res) => {
 
   clients.push(res);
   req.on("close", () => {
-    clients = clients.filter(c => c !== res);
+    clients = clients.filter((c) => c !== res);
   });
 });
 
 function broadcast(data) {
-  clients.forEach(res => res.write(`data: ${JSON.stringify(data)}\n\n`));
+  clients.forEach((res) =>
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+  );
 }
-
-// ======================
-// Fetch recent scans
-// ======================
-app.get('/scans', (req, res) => {
-  res.json(scans.slice(-20));
+// Get pending list
+app.get("/pending", (req, res) => {
+  res.json(pending);
 });
 
+
 // ======================
-// Submit new scan (from ESP32)
+// ESP32 sends scan
 // ======================
-app.post('/scan', async (req, res) => {
-  const { uid, checkpoint, token } = req.body;
+app.post("/scan", async (req, res) => {
+  const { uid, checkpoint } = req.body;
   if (!uid || !checkpoint) {
-    return res.status(400).json({ error: 'Missing uid or checkpoint' });
+    return res.status(400).json({ error: "Missing uid or checkpoint" });
   }
 
   try {
-    // Verify token
-    if (!token) {
-      return res.status(401).json({ error: "Missing token" });
-    }
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      if (decoded.uid !== uid) {
-        return res.status(401).json({ error: "Token UID mismatch" });
-      }
-    } catch (err) {
-      return res.status(401).json({ error: "Invalid or expired token" });
-    }
-
     const user = await getUser(uid);
 
-    if (!user) {
+    if (
+      !user ||
+      user.aadhaarHash ===
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ) {
+      // Not registered yet
       const payload = {
         status: "not_registered",
         uid,
         checkpoint,
-        time: new Date().toISOString()
+        time: new Date().toISOString(),
       };
-
+      pending.push(payload);
       scans.push(payload);
       broadcast(payload);
-
-      console.log("Unregistered UID scanned:", uid);
       return res.json({ error: "UID not registered" });
     }
 
-    const hash = crypto.createHash("sha256")
-      .update(uid + checkpoint + Date.now())
-      .digest("hex");
+    // Check if journey expired
+    if (parseInt(user.journeyExpiry) < Date.now() / 1000) {
+      const payload = {
+        status: "expired",
+        uid,
+        name: user.name,
+        checkpoint,
+        time: new Date().toISOString(),
+      };
+      scans.push(payload);
+      broadcast(payload);
+      return res.status(403).json({ error: "Journey expired", payload });
+    }
+
+    // Registered → log checkpoint on blockchain
+    const receipt = await logScan(uid, checkpoint);
 
     const entry = {
       status: "registered",
       uid,
+      name: user.name,
       checkpoint,
       time: new Date().toISOString(),
-      hash,
-      name: user.name,
+      tx: receipt.transactionHash,
     };
 
     scans.push(entry);
     broadcast(entry);
-
     res.json({ status: "ok", entry });
   } catch (err) {
     console.error("Error in /scan:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 });
 
 // ======================
-// Register new user (with PIN)
+// Admin registers new user
 // ======================
-app.post('/registerUser', async (req, res) => {
-  const { uid, name, aadhar, pin } = req.body;
+app.post("/registerUser", async (req, res) => {
+  const { uid, name, aadhar, journeyTime } = req.body;
 
-  if (!uid || !name || !aadhar || !pin) {
-    return res.status(400).json({ error: 'Missing uid, name, aadhar, or pin' });
+  if (!uid || !name || !aadhar || !journeyTime) {
+    return res
+      .status(400)
+      .json({ error: "Missing uid, name, aadhar, or journeyTime" });
   }
 
- function convertBigIntToString(obj) {
-  return JSON.parse(
-    JSON.stringify(obj, (key, value) =>
-      typeof value === "bigint" ? value.toString() : value
-    )
-  );
-}
+  try {
+    const aadhaarHash = crypto
+      .createHash("sha256")
+      .update(aadhar)
+      .digest("hex");
 
-const receipt = await registerUser(uid, aadhar, name);
-const serialized = convertBigIntToString(receipt);
+    // Convert journeyTime (seconds) into expiry timestamp
+    const expiry = Math.floor(Date.now() / 1000) + parseInt(journeyTime);
 
-
-    console.log(`✅ User registered: ${uid} - ${name} - Aadhar: ${aadhar} - PIN set`);
+    const receipt = await registerUser(uid, aadhaarHash, name, expiry);
 
     const entry = {
       status: "registered",
       uid,
-      checkpoint: "N/A",
-      time: new Date().toISOString(),
       name,
-      hash: "N/A",
+      checkpoint: "N/A",
+      journeyExpiry: expiry,
+      time: new Date().toISOString(),
     };
+
     scans.push(entry);
     broadcast(entry);
 
-    res.json({ status: 'ok', receipt: serialized });
-  }
-   catch (err) {
-    console.error('Error in /registerUser:', err);
-    res.status(500).json({ error: 'Registration failed', details: err.message });
+    res.json({ status: "ok", receipt });
+  } catch (err) {
+    console.error("Error in /registerUser:", err);
+    res
+      .status(500)
+      .json({ error: "Registration failed", details: err.message });
   }
 });
 
 // ======================
-// Verify user with PIN → issue token
+// Get user details
 // ======================
-app.post('/verifyUser', async (req, res) => {
-  const { uid, pin } = req.body;
-
-  if (!uid || !pin) {
-    return res.status(400).json({ error: "Missing uid or pin" });
-  }
-
+app.get("/user/:uid", async (req, res) => {
   try {
+    const uid = req.params.uid;
     const user = await getUser(uid);
-    if (!user) {
+
+    if (!user || !user.name) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // ⚠️ For now, PIN checking is dummy (not stored on-chain)
-    if (user.pin && user.pin !== pin) {
-      return res.status(401).json({ error: "Invalid PIN" });
-    }
-
-    const token = jwt.sign({ uid }, JWT_SECRET, { expiresIn: "10m" }); // token valid 10 min
-    activeTokens[uid] = token;
-
-    res.json({ status: "ok", token });
+    res.json({
+      uid,
+      name: user.name,
+      aadhaarHash: user.aadhaarHash,
+      active: user.active,
+      lastCheckpoint: user.lastCheckpoint,
+      lastScanTime: user.lastScanTime,
+      journeyExpiry: user.journeyExpiry,
+    });
   } catch (err) {
-    console.error("Error in /verifyUser:", err);
-    res.status(500).json({ error: "Verification failed" });
+    console.error("Error in /user/:uid:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 });
 
 // ======================
-// Revoke token
+// Revoke user (make card reusable)
 // ======================
-app.post('/revoke', (req, res) => {
+app.post("/revoke", async (req, res) => {
   const { uid } = req.body;
   if (!uid) return res.status(400).json({ error: "Missing uid" });
 
-  delete activeTokens[uid];
-  res.json({ status: "ok", message: `Token revoked for UID ${uid}` });
+  try {
+    const receipt = await revokeUser(uid);
+    res.json({ status: "ok", tx: receipt.transactionHash });
+  } catch (err) {
+    console.error("Error in /revoke:", err);
+    res.status(500).json({ error: "Revoke failed", details: err.message });
+  }
 });
 
 // ======================
-// Get stats
+// Checkpoint stats (counts only)
 // ======================
-app.get('/stats', (req, res) => {
+app.get("/stats", (req, res) => {
   const stats = {};
   scans.slice(-100).forEach((s) => {
-    stats[s.checkpoint] = (stats[s.checkpoint] || 0) + 1;
+    if (s.status === "registered") {
+      stats[s.checkpoint] = (stats[s.checkpoint] || 0) + 1;
+    }
   });
   res.json(stats);
 });
 
 // ======================
+// Get all users at a checkpoint
+// ======================
+app.get("/checkpoint/:id", (req, res) => {
+  const { id } = req.params;
+  const usersAtCheckpoint = scans.filter(
+    (s) => s.checkpoint === id && s.status === "registered"
+  );
+  res.json(usersAtCheckpoint);
+});
+
+// ======================
+// Root health check
+// ======================
+app.get("/", (req, res) =>
+  res.send("✅ Temple Access API is running!")
+);
+
+// ======================
 // Start server
 // ======================
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
-app.get("/", (req, res) => {
-  res.send("✅ Temple Access API is running!");
+app.listen(PORT, () =>
+  console.log(`Server running at http://localhost:${PORT}`)
+);
+let pendingUsers = []; // global in-memory store
+
+// When an unregistered UID scans, push to pending
+app.post("/unregistered", (req, res) => {
+  const { uid, checkpoint, time } = req.body;
+
+  // prevent duplicate pending UIDs
+  const exists = pendingUsers.find(u => u.uid === uid);
+  if (!exists) {
+    pendingUsers.push({ uid, checkpoint, time });
+  }
+  
+  res.json({ status: "added" });
 });
 
+
+// Endpoint to fetch pending list
+app.get("/pending", (req, res) => {
+  res.json(pendingUsers);
+});
+
+// Optional: clear once registered
+app.post("/pending/clear", (req, res) => {
+  const { uid } = req.body;
+  pendingUsers = pendingUsers.filter((u) => u.uid !== uid);
+  res.json({ status: "cleared", uid });
+});
