@@ -1,14 +1,10 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const crypto = require("crypto");
 const path = require("path");
-const {
-  getUser,
-  registerUser,
-  revokeUser,
-  logScan,
-} = require("./TempleAccess"); // blockchain helpers
+const fs = require("fs");
+const crypto = require("crypto");
+const { getUser, registerUser, revokeUser, logScan } = require("./TempleAccess");
 
 const app = express();
 app.use(cors());
@@ -16,11 +12,56 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 // ======================
+// File persistence setup
+// ======================
+const DATA_FILE = path.join(__dirname, "registeredUsers.json");
+
+// Load existing data (initialize file if needed)
+let registeredUsers = [];
+try {
+  if (fs.existsSync(DATA_FILE)) {
+    const fileData = fs.readFileSync(DATA_FILE, "utf8");
+    registeredUsers = JSON.parse(fileData || "[]");
+  } else {
+    fs.writeFileSync(DATA_FILE, "[]", "utf8");
+  }
+} catch (err) {
+  console.error("Failed to load registeredUsers.json:", err);
+  registeredUsers = [];
+}
+
+// Helper to save registered users
+function saveRegisteredUsers() {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(registeredUsers, null, 2), "utf8");
+  } catch (err) {
+    console.error("Error saving registered users:", err);
+  }
+}
+
+// ======================
 // In-memory state
 // ======================
-let scans = [];       // All scan history (for stats)
-let pending = [];     // Unregistered UIDs waiting for admin
-let clients = [];     // SSE clients
+let scans = [];
+let pendingUsers = [];
+let clients = [];
+
+// ======================
+// BigInt-safe serializer
+// ======================
+function serializeBigInt(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "bigint") return obj.toString();
+  if (Array.isArray(obj)) return obj.map(serializeBigInt);
+  if (typeof obj === "object") {
+    const res = {};
+    for (const key in obj) {
+      res[key] = serializeBigInt(obj[key]);
+    }
+    return res;
+  }
+  return obj;
+}
 
 // ======================
 // SSE live updates
@@ -38,24 +79,37 @@ app.get("/events", (req, res) => {
 });
 
 function broadcast(data) {
-  clients.forEach((res) =>
-    res.write(`data: ${JSON.stringify(data)}\n\n`)
-  );
+  clients.forEach((res) => res.write(`data: ${JSON.stringify(data)}\n\n`));
 }
-// Get pending list
-app.get("/pending", (req, res) => {
-  res.json(pending);
-});
 
+setInterval(async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const expiredUsers = registeredUsers.filter((u) => u.journeyExpiry && u.journeyExpiry < now);
 
+  if (expiredUsers.length > 0) {
+    console.log("⏳ Auto-revoking expired users:", expiredUsers.map(u => u.uid));
+
+    for (const user of expiredUsers) {
+      try {
+        await revokeUser(user.uid); // revoke on-chain
+      } catch (err) {
+        console.warn(`Failed to revoke ${user.uid} on-chain:`, err.message);
+      }
+
+      registeredUsers = registeredUsers.filter((u) => u.uid !== user.uid);
+      broadcast({ uid: user.uid, status: "revoked", reason: "expired", time: new Date().toISOString() });
+    }
+
+    saveRegisteredUsers();
+  }
+}, 60000);
 // ======================
 // ESP32 sends scan
 // ======================
 app.post("/scan", async (req, res) => {
   const { uid, checkpoint } = req.body;
-  if (!uid || !checkpoint) {
+  if (!uid || !checkpoint)
     return res.status(400).json({ error: "Missing uid or checkpoint" });
-  }
 
   try {
     const user = await getUser(uid);
@@ -65,20 +119,21 @@ app.post("/scan", async (req, res) => {
       user.aadhaarHash ===
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     ) {
-      // Not registered yet
-      const payload = {
-        status: "not_registered",
-        uid,
-        checkpoint,
-        time: new Date().toISOString(),
-      };
-      pending.push(payload);
-      scans.push(payload);
-      broadcast(payload);
+      // ✅ Prevent duplicate pending entries
+      if (!pendingUsers.some((p) => p.uid === uid)) {
+        const payload = {
+          status: "not_registered",
+          uid,
+          checkpoint,
+          time: new Date().toISOString(),
+        };
+        pendingUsers.push(payload);
+        scans.push(payload);
+        broadcast(payload);
+      }
       return res.json({ error: "UID not registered" });
     }
 
-    // Check if journey expired
     if (parseInt(user.journeyExpiry) < Date.now() / 1000) {
       const payload = {
         status: "expired",
@@ -92,9 +147,7 @@ app.post("/scan", async (req, res) => {
       return res.status(403).json({ error: "Journey expired", payload });
     }
 
-    // Registered → log checkpoint on blockchain
     const receipt = await logScan(uid, checkpoint);
-
     const entry = {
       status: "registered",
       uid,
@@ -106,7 +159,8 @@ app.post("/scan", async (req, res) => {
 
     scans.push(entry);
     broadcast(entry);
-    res.json({ status: "ok", entry });
+
+    res.json({ status: "ok", entry, receipt: serializeBigInt(receipt) });
   } catch (err) {
     console.error("Error in /scan:", err);
     res.status(500).json({ error: "Server error", details: err.message });
@@ -118,23 +172,21 @@ app.post("/scan", async (req, res) => {
 // ======================
 app.post("/registerUser", async (req, res) => {
   const { uid, name, aadhar, journeyTime } = req.body;
-
-  if (!uid || !name || !aadhar || !journeyTime) {
-    return res
-      .status(400)
-      .json({ error: "Missing uid, name, aadhar, or journeyTime" });
-  }
+  if (!uid || !name || !aadhar || !journeyTime)
+    return res.status(400).json({ error: "Missing fields" });
 
   try {
-    const aadhaarHash = crypto
-      .createHash("sha256")
-      .update(aadhar)
-      .digest("hex");
+    const existing = await getUser(uid);
+    if (
+      existing &&
+      existing.aadhaarHash !==
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ) {
+      return res.status(400).json({ error: "UID already registered" });
+    }
 
-    // Convert journeyTime (seconds) into expiry timestamp
     const expiry = Math.floor(Date.now() / 1000) + parseInt(journeyTime);
-
-    const receipt = await registerUser(uid, aadhaarHash, name, expiry);
+    const receipt = await registerUser(uid, aadhar, name, expiry);
 
     const entry = {
       status: "registered",
@@ -146,46 +198,30 @@ app.post("/registerUser", async (req, res) => {
     };
 
     scans.push(entry);
-    broadcast(entry);
+    registeredUsers.push(entry);
+    saveRegisteredUsers();
 
-    res.json({ status: "ok", receipt });
+    // ✅ Remove from pending
+    pendingUsers = pendingUsers.filter((u) => u.uid !== uid);
+
+    // ✅ Broadcast event so PendingPage & RegisteredUsers update live
+    broadcast({
+      status: "registered",
+      uid,
+      name,
+      journeyExpiry: expiry,
+      time: entry.time,
+    });
+
+    res.json({ status: "ok", entry, receipt: serializeBigInt(receipt) });
   } catch (err) {
     console.error("Error in /registerUser:", err);
-    res
-      .status(500)
-      .json({ error: "Registration failed", details: err.message });
+    res.status(500).json({ error: "Registration failed", details: err.message });
   }
 });
 
 // ======================
-// Get user details
-// ======================
-app.get("/user/:uid", async (req, res) => {
-  try {
-    const uid = req.params.uid;
-    const user = await getUser(uid);
-
-    if (!user || !user.name) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json({
-      uid,
-      name: user.name,
-      aadhaarHash: user.aadhaarHash,
-      active: user.active,
-      lastCheckpoint: user.lastCheckpoint,
-      lastScanTime: user.lastScanTime,
-      journeyExpiry: user.journeyExpiry,
-    });
-  } catch (err) {
-    console.error("Error in /user/:uid:", err);
-    res.status(500).json({ error: "Server error", details: err.message });
-  }
-});
-
-// ======================
-// Revoke user (make card reusable)
+// Revoke user
 // ======================
 app.post("/revoke", async (req, res) => {
   const { uid } = req.body;
@@ -193,75 +229,67 @@ app.post("/revoke", async (req, res) => {
 
   try {
     const receipt = await revokeUser(uid);
-    res.json({ status: "ok", tx: receipt.transactionHash });
+
+    // ✅ Remove from registered users list
+    registeredUsers = registeredUsers.filter((u) => u.uid !== uid);
+    saveRegisteredUsers();
+
+    // ✅ Broadcast revoke event
+    broadcast({
+      uid,
+      status: "revoked",
+      timestamp: Date.now(),
+    });
+
+    res.json({ status: "ok", receipt: serializeBigInt(receipt) });
   } catch (err) {
-    console.error("Error in /revoke:", err);
+    console.error("Revoke failed:", err);
     res.status(500).json({ error: "Revoke failed", details: err.message });
   }
 });
 
 // ======================
-// Checkpoint stats (counts only)
+// Pending users
 // ======================
-app.get("/stats", (req, res) => {
-  const stats = {};
-  scans.slice(-100).forEach((s) => {
-    if (s.status === "registered") {
-      stats[s.checkpoint] = (stats[s.checkpoint] || 0) + 1;
-    }
-  });
-  res.json(stats);
-});
-
-// ======================
-// Get all users at a checkpoint
-// ======================
-app.get("/checkpoint/:id", (req, res) => {
-  const { id } = req.params;
-  const usersAtCheckpoint = scans.filter(
-    (s) => s.checkpoint === id && s.status === "registered"
-  );
-  res.json(usersAtCheckpoint);
-});
-
-// ======================
-// Root health check
-// ======================
-app.get("/", (req, res) =>
-  res.send("✅ Temple Access API is running!")
-);
-
-// ======================
-// Start server
-// ======================
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () =>
-  console.log(`Server running at http://localhost:${PORT}`)
-);
-let pendingUsers = []; // global in-memory store
-
-// When an unregistered UID scans, push to pending
-app.post("/unregistered", (req, res) => {
-  const { uid, checkpoint, time } = req.body;
-
-  // prevent duplicate pending UIDs
-  const exists = pendingUsers.find(u => u.uid === uid);
-  if (!exists) {
-    pendingUsers.push({ uid, checkpoint, time });
-  }
-  
-  res.json({ status: "added" });
-});
-
-
-// Endpoint to fetch pending list
-app.get("/pending", (req, res) => {
-  res.json(pendingUsers);
-});
-
-// Optional: clear once registered
+app.get("/pending", (req, res) => res.json(pendingUsers));
 app.post("/pending/clear", (req, res) => {
   const { uid } = req.body;
   pendingUsers = pendingUsers.filter((u) => u.uid !== uid);
   res.json({ status: "cleared", uid });
 });
+
+// ======================
+// Registered users endpoint
+// ======================
+app.get("/registered", (req, res) => {
+  res.json(registeredUsers);
+});
+
+// ======================
+// Stats and checkpoints
+// ======================
+app.get("/stats", (req, res) => {
+  const stats = {};
+  scans.slice(-100).forEach((s) => {
+    if (s.status === "registered")
+      stats[s.checkpoint] = (stats[s.checkpoint] || 0) + 1;
+  });
+  res.json(stats);
+});
+
+app.get("/checkpoint/:id", (req, res) => {
+  const users = scans.filter(
+    (s) => s.checkpoint === req.params.id && s.status === "registered"
+  );
+  res.json(users);
+});
+
+// ======================
+// Root health check
+// ======================
+app.get("/", (req, res) => res.send("✅ Temple Access API is running!"));
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () =>
+  console.log(`Server running at http://localhost:${PORT}`)
+);

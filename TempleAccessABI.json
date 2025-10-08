@@ -7,6 +7,24 @@
 				"type": "bytes32"
 			},
 			{
+				"internalType": "string",
+				"name": "checkpoint",
+				"type": "string"
+			}
+		],
+		"name": "logScan",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "uid",
+				"type": "bytes32"
+			},
+			{
 				"internalType": "bytes32",
 				"name": "aadhaarHash",
 				"type": "bytes32"
@@ -15,9 +33,27 @@
 				"internalType": "string",
 				"name": "name",
 				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "durationSeconds",
+				"type": "uint256"
 			}
 		],
 		"name": "registerUser",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "uid",
+				"type": "bytes32"
+			}
+		],
+		"name": "revokeUser",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -31,15 +67,34 @@
 		"anonymous": false,
 		"inputs": [
 			{
-				"indexed": false,
+				"indexed": true,
 				"internalType": "bytes32",
 				"name": "uid",
 				"type": "bytes32"
 			},
 			{
 				"indexed": false,
+				"internalType": "string",
+				"name": "checkpoint",
+				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "timestamp",
+				"type": "uint256"
+			}
+		],
+		"name": "ScanLogged",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
 				"internalType": "bytes32",
-				"name": "aadhaarHash",
+				"name": "uid",
 				"type": "bytes32"
 			},
 			{
@@ -47,38 +102,33 @@
 				"internalType": "string",
 				"name": "name",
 				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "duration",
+				"type": "uint256"
 			}
 		],
 		"name": "UserRegistered",
 		"type": "event"
 	},
 	{
+		"anonymous": false,
 		"inputs": [
 			{
+				"indexed": true,
 				"internalType": "bytes32",
 				"name": "uid",
 				"type": "bytes32"
 			}
 		],
-		"name": "getUser",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
+		"name": "UserRevoked",
+		"type": "event"
 	},
 	{
 		"inputs": [],
-		"name": "owner",
+		"name": "admin",
 		"outputs": [
 			{
 				"internalType": "address",
@@ -92,31 +142,46 @@
 	{
 		"inputs": [
 			{
-				"internalType": "string",
-				"name": "str",
-				"type": "string"
-			}
-		],
-		"name": "stringToBytes32",
-		"outputs": [
-			{
 				"internalType": "bytes32",
-				"name": "result",
+				"name": "uid",
 				"type": "bytes32"
 			}
 		],
-		"stateMutability": "pure",
+		"name": "getRemainingTime",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "daysLeft",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "hoursLeft",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "minutesLeft",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "secondsLeft",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
 		"inputs": [
 			{
 				"internalType": "bytes32",
-				"name": "",
+				"name": "uid",
 				"type": "bytes32"
 			}
 		],
-		"name": "users",
+		"name": "getUser",
 		"outputs": [
 			{
 				"internalType": "bytes32",
@@ -127,6 +192,36 @@
 				"internalType": "string",
 				"name": "name",
 				"type": "string"
+			},
+			{
+				"internalType": "bool",
+				"name": "active",
+				"type": "bool"
+			},
+			{
+				"internalType": "string",
+				"name": "lastCheckpoint",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "lastScanTime",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "startTime",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "duration",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "remainingSeconds",
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "view",

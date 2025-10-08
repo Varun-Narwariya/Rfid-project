@@ -10,16 +10,54 @@ export default function Sidebar() {
       </div>
 
       <nav className="nav">
-        <NavLink to="/" className={({isActive}) => isActive ? "nav-link active":"nav-link"} end>
+        <NavLink
+          to="/"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+          end
+        >
           Dashboard
         </NavLink>
-        <NavLink to="/register" className={({isActive}) => isActive ? "nav-link active":"nav-link"}>
+
+        <NavLink
+          to="/register"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+        >
           Register User
         </NavLink>
-        <a className="nav-link" href="/pending">Pending</a>
+
+        <NavLink
+          to="/pending"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+        >
+          Pending
+        </NavLink>
+
+        <NavLink
+          to="/registered"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+        >
+          Registered UIDs
+        </NavLink>
+
+        <NavLink
+          to="/revoke"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+        >
+          Revoke User
+        </NavLink>
       </nav>
 
-      <div style={{flex:1}} />
+      <div style={{ flex: 1 }} />
 
       <div className="sidebar-footer">
         <small>Node: Connected</small>

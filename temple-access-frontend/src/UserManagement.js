@@ -26,24 +26,30 @@ export default function UserManagement({ pendingUID, onRegistered }) {
       return;
     }
 
-    try {
-      const res = await fetch("http://localhost:8080/registerUser", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (data.status === "ok") {
-        alert("✅ User registered successfully!");
-        onRegistered();
-      } else {
-        alert("❌ Registration failed: " + JSON.stringify(data));
-      }
-    } catch (err) {
-      console.error("Registration error:", err);
-      alert("❌ Error during registration");
+ try {
+  const res = await fetch("http://localhost:8080/registerUser", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uid, name }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    if (data.error === "UID already registered") {
+      alert("⚠️ This UID is already registered!");
+    } else {
+      alert("Registration failed: " + data.error);
     }
-  };
+    return;
+  }
+
+  alert("✅ User registered successfully!");
+  // clear fields or redirect
+} catch (err) {
+  alert("Network error: " + err.message);
+}
+
 
   return (
     <div className="card">
