@@ -68,3 +68,53 @@ body{margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helveti
 .btn{padding:10px 14px;border-radius:10px;border:none;cursor:pointer}
 .btn.primary{background:var(--accent);color:white}
 .btn.secondary{background:#ef4444;color:white}
+
+/* Make sure the entire page fills the viewport */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Ensure Dashboard takes full height */
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* 100% of the viewport height */
+  background: #f8f9fa; /* light gray background for clarity */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* KPI section layout */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* Card styling */
+.card {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Event list area should expand if needed */
+.events-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.event-row {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+.event-row.ok {
+  color: #2d6a4f;
+}
+.event-row.warn {
+  color: #e63946;
+}

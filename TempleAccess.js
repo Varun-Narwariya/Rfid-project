@@ -16,11 +16,19 @@ const contract = new ethers.Contract(CONTRACT_ADDRESS, TempleAccessABI, wallet);
 // ===== Helper: Convert UID to bytes32 =====
 
 function uidToBytes32(uid) {
-  // Convert number or string to BigInt
-  const uidBigInt = BigInt(uid);
+  // Normalize input
+  if (typeof uid !== "string") uid = String(uid);
 
-  // Convert to 32-byte hex
-  return ethers.toBeHex(uidBigInt, 32); // 32 bytes = bytes32
+  // Remove any 0x prefix if present
+  if (uid.startsWith("0x")) uid = uid.slice(2);
+
+  // Validate it's hexadecimal
+  if (!/^[0-9a-fA-F]+$/.test(uid)) {
+    throw new Error(`Invalid UID: ${uid} (must be hex string)`);
+  }
+
+  // Pad to 32 bytes (64 hex chars)
+  return "0x" + uid.padStart(64, "0");
 }
 
 
@@ -115,4 +123,53 @@ async function getUser(uid) {
   }
 }
 
-module.exports = { registerUser, revokeUser, logScan, getUser };
+// ===== Register Device =====
+async function registerDevice(deviceId, name, location) {
+  try {
+    const deviceBytes32 = uidToBytes32(deviceId);
+    const tx = await contract.registerDevice(deviceBytes32, name, location);
+    await tx.wait();
+
+    console.log(`✅ Device registered: ${name} (${deviceId})`);
+    return { success: true, txHash: tx.hash };
+  } catch (err) {
+    console.error("❌ registerDevice error:", err);
+    throw err;
+  }
+}
+
+// ===== Revoke Device =====
+async function revokeDevice(deviceId) {
+  try {
+    const deviceBytes32 = uidToBytes32(deviceId);
+    const tx = await contract.revokeDevice(deviceBytes32);
+    await tx.wait();
+
+    console.log(`🚫 Device revoked: ${deviceId}`);
+    return { success: true, txHash: tx.hash };
+  } catch (err) {
+    console.error("❌ revokeDevice error:", err);
+    throw err;
+  }
+}
+
+// ===== Log Device Data Share =====
+async function logDeviceDataShare(fromDevice, toDevice, uid, dataURI) {
+  try {
+    const fromBytes32 = uidToBytes32(fromDevice);
+    const toBytes32 = uidToBytes32(toDevice);
+    const uidBytes32 = uidToBytes32(uid);
+
+    const tx = await contract.logDeviceDataShare(fromBytes32, toBytes32, uidBytes32, dataURI);
+    await tx.wait();
+
+    console.log(`🔁 Data shared from ${fromDevice} ➜ ${toDevice}`);
+    return { success: true, txHash: tx.hash };
+  } catch (err) {
+    console.error("❌ logDeviceDataShare error:", err);
+    throw err;
+  }
+}
+
+
+module.exports = { registerUser, revokeUser, logScan, getUser, registerDevice, revokeDevice, logDeviceDataShare };

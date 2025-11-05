@@ -1,8 +1,6 @@
 // src/Dashboard.js - THE SIMPLIFIED DISPLAY COMPONENT
 
 import React, { useContext } from "react";
-import DonutChart from "./DonutChart";
-import UserGauges from "./UserGauges";
 import { DataContext } from "../DataContext"; // 1. Import the context
 
 export default function Dashboard() {
@@ -29,17 +27,6 @@ export default function Dashboard() {
         <div className="kpi card">
           <div className="kpi-title">Checkpoints</div>
           <div className="kpi-value">{Object.keys(stats).length}</div>
-        </div>
-      </div>
-
-      <div className="charts-row">
-        <div className="card wide">
-          <h3>Checkpoint Distribution</h3>
-          <DonutChart data={stats} />
-        </div>
-        <div className="card">
-          <h3>Live People by Checkpoint</h3>
-          <UserGauges stats={stats} />
         </div>
       </div>
 

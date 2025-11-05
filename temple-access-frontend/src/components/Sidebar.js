@@ -55,6 +55,14 @@ export default function Sidebar() {
         >
           Revoke User
         </NavLink>
+        <NavLink
+          to="/RegisteredDevices"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+        >
+          RegisteredDevices
+        </NavLink>
       </nav>
 
       <div style={{ flex: 1 }} />
