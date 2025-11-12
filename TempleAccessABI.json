@@ -1,5 +1,41 @@
 [
 	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "deviceAddr",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "checkpoint",
+				"type": "uint256"
+			}
+		],
+		"name": "addCheckpointDevice",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "adminAddr",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "checkpoint",
+				"type": "uint256"
+			}
+		],
+		"name": "addLocalAdmin",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"stateMutability": "nonpayable",
 		"type": "constructor"
@@ -27,6 +63,38 @@
 			}
 		],
 		"name": "AlertCheckpointOverload",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "deviceAddress",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "checkpoint",
+				"type": "uint256"
+			}
+		],
+		"name": "CheckpointDeviceAdded",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "deviceAddress",
+				"type": "address"
+			}
+		],
+		"name": "CheckpointDeviceRevoked",
 		"type": "event"
 	},
 	{
@@ -90,6 +158,38 @@
 			}
 		],
 		"name": "DeviceRevoked",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "admin",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "checkpoint",
+				"type": "uint256"
+			}
+		],
+		"name": "LocalAdminAdded",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "admin",
+				"type": "address"
+			}
+		],
+		"name": "LocalAdminRevoked",
 		"type": "event"
 	},
 	{
@@ -169,12 +269,38 @@
 	{
 		"inputs": [
 			{
+				"internalType": "address",
+				"name": "deviceAddr",
+				"type": "address"
+			}
+		],
+		"name": "revokeCheckpointDevice",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "bytes32",
 				"name": "deviceId",
 				"type": "bytes32"
 			}
 		],
 		"name": "revokeDevice",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "adminAddr",
+				"type": "address"
+			}
+		],
+		"name": "revokeLocalAdmin",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -274,6 +400,12 @@
 				"internalType": "string",
 				"name": "name",
 				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "checkpoint",
+				"type": "uint256"
 			}
 		],
 		"name": "UserRegistered",
@@ -314,6 +446,30 @@
 	{
 		"inputs": [
 			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "checkpointDevices",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "active",
+				"type": "bool"
+			},
+			{
+				"internalType": "uint256",
+				"name": "checkpoint",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
@@ -339,6 +495,40 @@
 			}
 		],
 		"name": "devices",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "location",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "checkpointNumber",
+				"type": "uint256"
+			},
+			{
+				"internalType": "bool",
+				"name": "active",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "deviceId",
+				"type": "bytes32"
+			}
+		],
+		"name": "getDevice",
 		"outputs": [
 			{
 				"internalType": "string",
@@ -408,6 +598,11 @@
 				"internalType": "uint256",
 				"name": "duration",
 				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "registeredBy",
+				"type": "address"
 			}
 		],
 		"stateMutability": "view",
@@ -426,6 +621,30 @@
 			{
 				"internalType": "uint256",
 				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "localAdmins",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "active",
+				"type": "bool"
+			},
+			{
+				"internalType": "uint256",
+				"name": "checkpoint",
 				"type": "uint256"
 			}
 		],
@@ -489,6 +708,11 @@
 				"internalType": "uint256",
 				"name": "duration",
 				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "registeredBy",
+				"type": "address"
 			}
 		],
 		"stateMutability": "view",

@@ -1,14 +1,24 @@
 import React, { useEffect, useState } from "react";
 
-export default function RegisteredUsers() {
+export default function RegisteredUsers({ user }) {
   const [users, setUsers] = useState([]);
+
+  const isAdmin = user?.role === "owner";
+  const isLocalAdmin = user?.role === "local_admin";
 
   // 🧩 Fetch registered users initially
   useEffect(() => {
     fetch("http://localhost:8080/registered")
       .then((res) => res.json())
       .then((data) => {
-        const enhanced = data.map((u) => ({
+        // Filter users for local admin checkpoint
+        const filtered = isAdmin
+          ? data
+          : data.filter(
+              (u) => Number(u.checkpoint) === Number(user?.checkpoint)
+            );
+
+        const enhanced = filtered.map((u) => ({
           ...u,
           remainingSeconds: Math.max(
             0,
@@ -19,30 +29,37 @@ export default function RegisteredUsers() {
       })
       .catch((err) => console.error("Error loading registered users:", err));
 
-    // 🛰️ Listen to live updates via SSE
+    // 🛰️ SSE: Live updates
     const eventSource = new EventSource("http://localhost:8080/events");
 
     eventSource.onmessage = (e) => {
       const data = JSON.parse(e.data);
       console.log("🔄 SSE Event:", data);
 
+      // ✅ Handle new registration
       if (data.status === "registered") {
-        // ✅ Add new user if not already in list
-        setUsers((prev) => {
-          const exists = prev.find((u) => u.uid === data.uid);
-          if (exists) return prev;
-          const expiry = data.journeyExpiry || Math.floor(Date.now() / 1000) + 60;
-          return [
-            ...prev,
-            {
-              ...data,
-              remainingSeconds: expiry - Math.floor(Date.now() / 1000),
-            },
-          ];
-        });
+        // Local Admin should only see if it's from their checkpoint
+        if (
+          isAdmin ||
+          Number(data.checkpoint) === Number(user?.checkpoint)
+        ) {
+          setUsers((prev) => {
+            const exists = prev.find((u) => u.uid === data.uid);
+            if (exists) return prev;
+            const expiry =
+              data.journeyExpiry || Math.floor(Date.now() / 1000) + 60;
+            return [
+              ...prev,
+              {
+                ...data,
+                remainingSeconds: expiry - Math.floor(Date.now() / 1000),
+              },
+            ];
+          });
+        }
       }
 
-      // ❌ Handle revoked OR auto-revoked OR expired events
+      // ❌ Handle revoked / expired users
       else if (
         data.status === "revoked" ||
         data.status === "auto-revoked" ||
@@ -53,7 +70,7 @@ export default function RegisteredUsers() {
     };
 
     return () => eventSource.close();
-  }, []);
+  }, [isAdmin, user]);
 
   // 🕒 Countdown timer for expiry
   useEffect(() => {
@@ -81,10 +98,17 @@ export default function RegisteredUsers() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>📜 Registered Users</h2>
+      <h2>
+        📜 Registered Users{" "}
+        {isLocalAdmin && (
+          <span style={{ fontSize: "0.9em", color: "#777" }}>
+            (Checkpoint {user.checkpoint})
+          </span>
+        )}
+      </h2>
 
       {users.length === 0 ? (
-        <p>No registered users yet.</p>
+        <p>No registered users{isLocalAdmin ? " at this checkpoint" : ""}.</p>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>

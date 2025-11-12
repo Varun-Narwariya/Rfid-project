@@ -4,8 +4,6 @@ require("dotenv").config();
 
 // ====== Setup Blockchain Connection ======
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-
-// Ensure your private key is correct and does not have 0x prefix issues
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
@@ -13,33 +11,37 @@ const TempleAccessABI = require("./TempleAccessABI.json");
 
 const contract = new ethers.Contract(CONTRACT_ADDRESS, TempleAccessABI, wallet);
 
-// ===== Helper: Convert UID to bytes32 =====
+// =====================================================
+// ============== Helper Functions =====================
+// =====================================================
 
+// ===== Convert UID or DeviceID to bytes32 =====
 function uidToBytes32(uid) {
-  // Normalize input
   if (typeof uid !== "string") uid = String(uid);
-
-  // Remove any 0x prefix if present
   if (uid.startsWith("0x")) uid = uid.slice(2);
-
-  // Validate it's hexadecimal
   if (!/^[0-9a-fA-F]+$/.test(uid)) {
     throw new Error(`Invalid UID: ${uid} (must be hex string)`);
   }
-
-  // Pad to 32 bytes (64 hex chars)
   return "0x" + uid.padStart(64, "0");
 }
 
+// ===== Convert address to checksummed form =====
+function normalizeAddress(addr) {
+  try {
+    return ethers.getAddress(addr);
+  } catch {
+    throw new Error(`Invalid address: ${addr}`);
+  }
+}
 
-// ===== Register a User =====
+// =====================================================
+// ============== User Functions =======================
+// =====================================================
+
 async function registerUser(uid, aadhaar, name, durationSeconds) {
   try {
     const uidBytes32 = uidToBytes32(uid);
-
-    // Hash Aadhaar to bytes32
     const hash = ethers.keccak256(ethers.toUtf8Bytes(aadhaar));
-
     const tx = await contract.registerUser(uidBytes32, hash, name, durationSeconds);
     await tx.wait();
 
@@ -51,7 +53,6 @@ async function registerUser(uid, aadhaar, name, durationSeconds) {
   }
 }
 
-// ===== Revoke User =====
 async function revokeUser(uid) {
   try {
     const uidBytes32 = uidToBytes32(uid);
@@ -66,7 +67,6 @@ async function revokeUser(uid) {
   }
 }
 
-// ===== Log Checkpoint Scan =====
 async function logScan(uid, checkpoint) {
   try {
     const uidBytes32 = uidToBytes32(uid);
@@ -81,7 +81,6 @@ async function logScan(uid, checkpoint) {
   }
 }
 
-// ===== Get User Details =====
 async function getUser(uid) {
   try {
     const uidBytes32 = uidToBytes32(uid);
@@ -93,7 +92,7 @@ async function getUser(uid) {
       lastScanTime,
       startTime,
       duration,
-      remainingSeconds,
+      registeredBy,
     ] = await contract.getUser(uidBytes32);
 
     const expiryTime = Number(startTime) + Number(duration);
@@ -113,8 +112,7 @@ async function getUser(uid) {
       lastScanTime: Number(lastScanTime),
       startTime: Number(startTime),
       duration: Number(duration),
-      expiryTime,
-      remainingSeconds: remaining,
+      registeredBy,
       remainingFormatted: `${days}d ${hours}h ${minutes}m ${seconds}s`,
     };
   } catch (err) {
@@ -123,22 +121,24 @@ async function getUser(uid) {
   }
 }
 
-// ===== Register Device =====
-async function registerDevice(deviceId, name, location) {
+// =====================================================
+// ============== Device Functions =====================
+// =====================================================
+
+async function registerDevice(deviceId, name, location, checkpointNumber) {
   try {
     const deviceBytes32 = uidToBytes32(deviceId);
-    const tx = await contract.registerDevice(deviceBytes32, name, location);
+    const tx = await contract.registerDevice(deviceBytes32, name, location, checkpointNumber);
     await tx.wait();
 
-    console.log(`✅ Device registered: ${name} (${deviceId})`);
+    console.log(`✅ Device registered: ${name} (${deviceId}) at checkpoint ${checkpointNumber}`);
     return { success: true, txHash: tx.hash };
   } catch (err) {
     console.error("❌ registerDevice error:", err);
-    throw err;
+    return { success: false, error: err.message };
   }
 }
 
-// ===== Revoke Device =====
 async function revokeDevice(deviceId) {
   try {
     const deviceBytes32 = uidToBytes32(deviceId);
@@ -149,27 +149,120 @@ async function revokeDevice(deviceId) {
     return { success: true, txHash: tx.hash };
   } catch (err) {
     console.error("❌ revokeDevice error:", err);
-    throw err;
+    return { success: false, error: err.message };
   }
 }
 
-// ===== Log Device Data Share =====
-async function logDeviceDataShare(fromDevice, toDevice, uid, dataURI) {
-  try {
-    const fromBytes32 = uidToBytes32(fromDevice);
-    const toBytes32 = uidToBytes32(toDevice);
-    const uidBytes32 = uidToBytes32(uid);
+// =====================================================
+// ============== Local Admin Management ===============
+// =====================================================
 
-    const tx = await contract.logDeviceDataShare(fromBytes32, toBytes32, uidBytes32, dataURI);
+async function addLocalAdmin(adminAddr, checkpoint) {
+  try {
+    const addr = normalizeAddress(adminAddr);
+    const tx = await contract.addLocalAdmin(addr, checkpoint);
     await tx.wait();
 
-    console.log(`🔁 Data shared from ${fromDevice} ➜ ${toDevice}`);
+    console.log(`👤 Local Admin added: ${addr} for checkpoint ${checkpoint}`);
     return { success: true, txHash: tx.hash };
   } catch (err) {
-    console.error("❌ logDeviceDataShare error:", err);
-    throw err;
+    console.error("❌ addLocalAdmin error:", err);
+    return { success: false, error: err.message };
   }
 }
 
+async function revokeLocalAdmin(adminAddr) {
+  try {
+    const addr = normalizeAddress(adminAddr);
+    const tx = await contract.revokeLocalAdmin(addr);
+    await tx.wait();
 
-module.exports = { registerUser, revokeUser, logScan, getUser, registerDevice, revokeDevice, logDeviceDataShare };
+    console.log(`🛑 Local Admin revoked: ${addr}`);
+    return { success: true, txHash: tx.hash };
+  } catch (err) {
+    console.error("❌ revokeLocalAdmin error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function getLocalAdmin(adminAddr) {
+  try {
+    const addr = normalizeAddress(adminAddr);
+    const [active, checkpoint] = await contract.localAdmins(addr);
+
+    return { address: addr, active, checkpoint: Number(checkpoint) };
+  } catch (err) {
+    console.error("❌ getLocalAdmin error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// =====================================================
+// ============== Checkpoint Device Management =========
+// =====================================================
+
+async function addCheckpointDevice(deviceAddr, checkpoint) {
+  try {
+    const addr = normalizeAddress(deviceAddr);
+    const tx = await contract.addCheckpointDevice(addr, checkpoint);
+    await tx.wait();
+
+    console.log(`⚙️ Checkpoint Device added: ${addr} for checkpoint ${checkpoint}`);
+    return { success: true, txHash: tx.hash };
+  } catch (err) {
+    console.error("❌ addCheckpointDevice error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function revokeCheckpointDevice(deviceAddr) {
+  try {
+    const addr = normalizeAddress(deviceAddr);
+    const tx = await contract.revokeCheckpointDevice(addr);
+    await tx.wait();
+
+    console.log(`🛑 Checkpoint Device revoked: ${addr}`);
+    return { success: true, txHash: tx.hash };
+  } catch (err) {
+    console.error("❌ revokeCheckpointDevice error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function getCheckpointDevice(deviceAddr) {
+  try {
+    const addr = normalizeAddress(deviceAddr);
+    const [active, checkpoint] = await contract.checkpointDevices(addr);
+
+    return { address: addr, active, checkpoint: Number(checkpoint) };
+  } catch (err) {
+    console.error("❌ getCheckpointDevice error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// =====================================================
+// ============== Exports ==============================
+// =====================================================
+
+module.exports = {
+  // === Users ===
+  registerUser,
+  revokeUser,
+  logScan,
+  getUser,
+
+  // === Devices ===
+  registerDevice,
+  revokeDevice,
+
+  // === Local Admin ===
+  addLocalAdmin,
+  revokeLocalAdmin,
+  getLocalAdmin,
+
+  // === Checkpoint Device ===
+  addCheckpointDevice,
+  revokeCheckpointDevice,
+  getCheckpointDevice,
+};

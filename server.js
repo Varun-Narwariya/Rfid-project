@@ -4,6 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const { ethers } = require("ethers");
 const { registerUser, revokeUser, logScan, getUser, registerDevice, revokeDevice, logDeviceDataShare} = require("./TempleAccess");
 
 const app = express();
@@ -11,6 +12,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+const TempleAccessABI = require("./TempleAccessABI.json");
+const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const contract = new ethers.Contract(CONTRACT_ADDRESS, TempleAccessABI, wallet);
 // ======================
 // ✅ File persistence setup (Fixed)
 // ======================
@@ -473,6 +479,134 @@ app.get("/checkpoint/:id", (req, res) => {
   const users = scans.filter((s) => s.checkpoint === req.params.id && s.status === "registered");
   res.json(users);
 });
+
+// ======================
+// 🧑‍💼 Local Admin Management
+// ======================
+const {
+  addLocalAdmin,
+  revokeLocalAdmin,
+  getLocalAdmin,
+  addCheckpointDevice,
+  revokeCheckpointDevice,
+  getCheckpointDevice
+} = require("./TempleAccess");
+
+// ➕ Add Local Admin
+app.post("/addLocalAdmin", async (req, res) => {
+  const { adminAddress, checkpoint } = req.body;
+  if (!adminAddress || checkpoint === undefined)
+    return res.status(400).json({ error: "Missing adminAddress or checkpoint" });
+
+  try {
+    const result = await addLocalAdmin(adminAddress, Number(checkpoint));
+    res.json({ status: "ok", txHash: result.txHash || result.hash, adminAddress, checkpoint });
+  } catch (err) {
+    console.error("❌ Error adding local admin:", err);
+    res.status(500).json({ error: "Failed to add local admin", details: err.message });
+  }
+});
+
+// ❌ Revoke Local Admin
+app.post("/revokeLocalAdmin", async (req, res) => {
+  const { adminAddress } = req.body;
+  if (!adminAddress)
+    return res.status(400).json({ error: "Missing adminAddress" });
+
+  try {
+    const result = await revokeLocalAdmin(adminAddress);
+    res.json({ status: "ok", txHash: result.txHash || result.hash, adminAddress });
+  } catch (err) {
+    console.error("❌ Error revoking local admin:", err);
+    res.status(500).json({ error: "Failed to revoke local admin", details: err.message });
+  }
+});
+
+// 📋 Get Local Admin Info
+app.get("/getLocalAdmin/:address", async (req, res) => {
+  try {
+    const adminInfo = await getLocalAdmin(req.params.address);
+    res.json(adminInfo);
+  } catch (err) {
+    console.error("❌ Error getting local admin info:", err);
+    res.status(500).json({ error: "Failed to fetch admin info", details: err.message });
+  }
+});
+
+// ======================
+// ⚙️ Checkpoint Device Management (ESP32)
+// ======================
+
+// ➕ Add Checkpoint Device
+app.post("/addCheckpointDevice", async (req, res) => {
+  const { deviceAddress, checkpoint } = req.body;
+  if (!deviceAddress || checkpoint === undefined)
+    return res.status(400).json({ error: "Missing deviceAddress or checkpoint" });
+
+  try {
+    const result = await addCheckpointDevice(deviceAddress, Number(checkpoint));
+    res.json({ status: "ok", txHash: result.txHash || result.hash, deviceAddress, checkpoint });
+  } catch (err) {
+    console.error("❌ Error adding checkpoint device:", err);
+    res.status(500).json({ error: "Failed to add checkpoint device", details: err.message });
+  }
+});
+
+// ❌ Revoke Checkpoint Device
+app.post("/revokeCheckpointDevice", async (req, res) => {
+  const { deviceAddress } = req.body;
+  if (!deviceAddress)
+    return res.status(400).json({ error: "Missing deviceAddress" });
+
+  try {
+    const result = await revokeCheckpointDevice(deviceAddress);
+    res.json({ status: "ok", txHash: result.txHash || result.hash, deviceAddress });
+  } catch (err) {
+    console.error("❌ Error revoking checkpoint device:", err);
+    res.status(500).json({ error: "Failed to revoke checkpoint device", details: err.message });
+  }
+});
+
+// 📋 Get Checkpoint Device Info
+app.get("/getCheckpointDevice/:address", async (req, res) => {
+  try {
+    const info = await getCheckpointDevice(req.params.address);
+    res.json(info);
+  } catch (err) {
+    console.error("❌ Error getting checkpoint device info:", err);
+    res.status(500).json({ error: "Failed to fetch checkpoint device info", details: err.message });
+  }
+});
+
+// ======================
+// 🧠 Role Detection (Frontend helper)
+// ======================
+app.get("/detectRole/:address", async (req, res) => {
+  try {
+    const address = req.params.address;
+    const owner = await contract.owner();
+
+    if (address.toLowerCase() === owner.toLowerCase()) {
+      return res.json({ role: "owner", checkpoint: "N/A" });
+    }
+
+    const localAdmin = await getLocalAdmin(address);
+    if (localAdmin && localAdmin.active) {
+      return res.json({ role: "local_admin", checkpoint: localAdmin.checkpoint });
+    }
+
+    const checkpointDevice = await getCheckpointDevice(address);
+    if (checkpointDevice && checkpointDevice.active) {
+      return res.json({ role: "checkpoint_device", checkpoint: checkpointDevice.checkpoint });
+    }
+
+    return res.json({ role: "unauthorized" });
+  } catch (err) {
+    console.error("❌ Error detecting role:", err);
+    res.status(500).json({ error: "Failed to detect role", details: err.message });
+  }
+});
+
 
 // ======================
 // 🩺 Health Check
